@@ -21,26 +21,115 @@ A MicroPython library for the **Sthymuli educational robot**, designed to work w
 
 ## Installation
 
-### Option A — TigerPythonWeb / Thonny / mpremote
+This is a **one-time setup** done by the teacher or lab technician. Students never need to repeat it.
 
-Copy the `sthymuli/` folder to the root of your ESP32-S3 filesystem.
+---
 
+### Step 1 — Flash MicroPython onto the board
+
+The Sthymuli robot ships with Arduino firmware. You need to replace it with MicroPython once.
+
+**Requirements:**
+- Python 3 installed on your computer
+- USB cable connected to the robot
+
+**Install esptool:**
+```bash
+pip install esptool
 ```
-sthymuli/
-  __init__.py
-  _hardware.py
-  leds.py
-  sensors.py
-  tilting.py
-  vibration.py
+
+**Download MicroPython** for ESP32-S3 from:
+[micropython.org/download/ESP32_GENERIC_S3](https://micropython.org/download/ESP32_GENERIC_S3/)
+Download the latest `.bin` file.
+
+**Erase the old firmware:**
+```bash
+esptool --chip esp32s3 --port /dev/cu.usbmodem101 erase-flash
+```
+> On Windows the port will be `COM3` or similar. On Linux `/dev/ttyUSB0`.
+
+**Flash MicroPython:**
+```bash
+esptool --chip esp32s3 --port /dev/cu.usbmodem101 write-flash -z 0x0 ESP32_GENERIC_S3.bin
 ```
 
-### Option B — mip (MicroPython package manager)
+---
+
+### Step 2 — Upload the boot file
+
+The `boot.py` file holds the power latch (GPIO6) so the board stays on, and keeps the REPL accessible so tools like mpremote can always connect — no buttons needed.
+
+**Install mpremote:**
+```bash
+pip install mpremote
+```
+
+**Upload boot.py** from this repository:
+```bash
+mpremote connect /dev/cu.usbmodem101 cp boot.py :boot.py
+```
+
+> ⚠️ This step is critical. Without `boot.py`, the board may become unreachable after the first program runs, requiring physical access to the BOOT/RESET buttons to recover.
+
+---
+
+### Step 3 — Upload the library
+
+From the root of this repository:
+```bash
+mpremote connect /dev/cu.usbmodem101 cp -r sthymuli/ :
+```
+
+**Verify the upload:**
+```bash
+mpremote connect /dev/cu.usbmodem101 ls :sthymuli/
+```
+
+You should see all 6 files: `__init__.py`, `_hardware.py`, `leds.py`, `sensors.py`, `tilting.py`, `vibration.py`.
+
+---
+
+### Step 4 — Test
+
+Open [TigerPythonWeb](https://test.webtigerpython.ethz.ch), select **ESP32**, connect to the board, and run:
+
+```python
+from sthymuli.leds import LEDs, Shape
+
+leds = LEDs()
+leds.show(Shape.RING, color=(0, 150, 0))
+```
+
+The LED ring should light up green. The board is ready for students.
+
+---
+
+### mip (alternative — requires WiFi on the board)
 
 ```python
 import mip
 mip.install("github:Sthymuli/sthymuli_micropython")
 ```
+
+---
+
+### Recovering a locked board
+
+If mpremote cannot connect (`could not enter raw repl`), a program is blocking the REPL. This should not happen if `boot.py` was uploaded correctly. If it does:
+
+```bash
+# Send Ctrl-C over serial to interrupt the running program
+python3 -c "
+import serial, time
+s = serial.Serial('/dev/cu.usbmodem101', 115200, timeout=2)
+s.write(b'\r\x03\x03\r\x03\x03')
+time.sleep(1)
+print(s.read(200))
+s.close()
+"
+```
+
+Then retry mpremote. As a last resort, re-flash MicroPython from Step 1.
 
 ---
 
