@@ -1,0 +1,10 @@
+# MicroPython byte-compiled
+*.mpy
+__pycache__/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+*.swp
